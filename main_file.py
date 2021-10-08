@@ -6,24 +6,13 @@ Created on Sat Nov 23 16:44:33 2019
 @author: tirsgaard
 """
 # File for running the entire program
-import sys
 
-from go_model import ResNet, ResNetBasicBlock
-from tools.go import go_board
-from multiprocessing import Process, Queue, Pipe, Value, Lock, Manager, Pool
-from MCTS.MCTS2 import gpu_worker, data_handler, sim_game, sim_games
-from tools.training_functions import load_saved_games, save_model, load_latest_model, loss_function, model_trainer
-import numpy as np
+from model.go_model import ResNet, ResNetBasicBlock
+from MCTS.MCTS2 import sim_games
+from tools.training_functions import save_model, load_latest_model, model_trainer
 
 import torch
-from torch.autograd import Variable
-from torch.nn.parameter import Parameter
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import torch.nn.init as init
 from torch.utils.tensorboard import SummaryWriter
-from functools import partial
 from tools.elo import elo_league
 
 if __name__ == '__main__':

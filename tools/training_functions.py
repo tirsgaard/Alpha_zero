@@ -14,7 +14,8 @@ import sys
 import torch.optim as optim
 
 
-sys.path.append('/Users/tirsgaard/Google Drive/Alphago_zero')
+#"sys.path.append('/Users/tirsgaard/Google Drive/Alphago_zero')
+sys.path.append("../model")
 from model import go_model
 
 def load_saved_games(N_data_points):
