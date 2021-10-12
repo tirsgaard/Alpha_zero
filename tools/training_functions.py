@@ -13,19 +13,10 @@ import torch
 import sys
 import torch.optim as optim
 
-
-#"sys.path.append('/Users/tirsgaard/Google Drive/Alphago_zero')
 sys.path.append("../model")
 from model import go_model
 
 def load_saved_games(N_data_points):
-    
-    
-
-    #data = np.load("games_data/game_data_24.npz")
-    #S_array, P_array, z_array
-    #print(data['S'])
-    
     # Construct large numpy array of data
     S_array = np.empty((N_data_points, 17, 9, 9), dtype=bool)
     Pi_array = np.empty((N_data_points, 82), dtype=float)
@@ -59,9 +50,7 @@ def load_saved_games(N_data_points):
             z_array = z_array[0:data_counter]
             
             return S_array, Pi_array, z_array, data_counter+1
-            
-            
-            
+
         data = np.load(file_name)
         S = data['S']
         Pi = data['P']
@@ -103,7 +92,7 @@ def save_model(model):
     
 
 def load_latest_model():
-    subdirectory = "../model/saved_models/"
+    subdirectory = "model/saved_models/"
     os.makedirs(subdirectory, exist_ok=True)
     # Find larges number of games found
     # Get files
@@ -124,6 +113,7 @@ def load_latest_model():
     
     load_name = subdirectory+"model_" + str(latest_model) + ".model"
     print("Loading model " + load_name)
+    sys.path.append("model")
     if (torch.cuda.is_available()):
         model = torch.load(load_name)
     else:
@@ -137,9 +127,6 @@ def loss_function(Pi, z, P, v, batch_size):
     policy_error = torch.bmm(Pi.view(batch_size, 1, 82), inner.view(batch_size, 82, 1)).mean()
     total_error = value_error - policy_error
     return total_error, value_error, -policy_error
-
-
-
 
 class model_trainer:
     def __init__(self, writer, N_turns=5*10**5, num_epochs = 320, train_batch_size = 512):
@@ -199,7 +186,7 @@ def train_model(training_model, learning_rate, ):
     optimizer = optim.SGD(training_model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=10 ** -4)
 
     # Load newest data
-    S, Pi, z, n_points = load_saved_games(self.N_turns)
+    S, Pi, z, n_points = load_saved_games(N_turns)
     S = torch.from_numpy(S).float().cuda()
     Pi = torch.from_numpy(Pi).float().cuda()
     z = torch.from_numpy(z).float().cuda()

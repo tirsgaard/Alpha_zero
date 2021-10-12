@@ -60,7 +60,8 @@ def gpu_worker(gpu_Q, batch_size ,board_size, model):
         calibration_done = False
         MCTS_queue = 1
         t = time.time()
-        batch = torch.empty((batch_size * MCTS_queue, 17, board_size, board_size))
+        # The +1 next line is to take cases where a small job is submited
+        batch = torch.empty(((batch_size+1) * MCTS_queue, 17, board_size, board_size))
         batch_test_length = 400
         time_spent = float("inf")
 
@@ -96,7 +97,7 @@ def gpu_worker(gpu_Q, batch_size ,board_size, model):
             if ((num_eval % (batch_test_length + 1)) == 0) and not calibration_done:
                 calibration_done = time.time() - t > time_spent
                 time_spent = time.time() - t
-                MCTS_queue += 1
+                MCTS_queue += 1 - 2*calibration_done # The calibration is for going back to optimal size
                 batch = torch.empty((batch_size * MCTS_queue, 17, board_size, board_size))
 
 
@@ -320,6 +321,7 @@ def MCTS(root_node, gpu_Q, n_MCTS, color, number_passes, MCTS_queue):
             try:
                 P = P_array[k]
             except:
+                print(P_array)
                 print("hello")
             v = v_array[k][0]
             v = relative_value[color]*v
