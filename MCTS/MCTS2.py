@@ -63,7 +63,7 @@ def gpu_worker(gpu_Q, job_size ,board_size, model):
         # The +1 next line is to take cases where a small job is submited
         batch = torch.empty((job_size*(MCTS_queue+1), 17, board_size, board_size))
         batch_test_length = 400
-        time_spent = float("inf")
+        speed = float("-inf")
 
         while True:
             # Loop to get data
@@ -96,8 +96,11 @@ def gpu_worker(gpu_Q, job_size ,board_size, model):
 
             if ((num_eval % (batch_test_length + 1)) == 0) and not calibration_done:
                 # Update calibration
-                calibration_done = time.time() - t > time_spent
                 time_spent = time.time() - t
+                t = time.time()
+                calibration_done = num_eval/time_spent - t < speed
+                speed = num_eval/time_spent
+
                 MCTS_queue += 1 - 2*calibration_done # The calibration is for going back to optimal size
                 batch = torch.empty((job_size * (MCTS_queue+1), 17, board_size, board_size))
 
