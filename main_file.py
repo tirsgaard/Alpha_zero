@@ -109,7 +109,7 @@ if __name__ == '__main__':
         best_model = training_model
         save_model(best_model)
 
-        new_elo, model_iter_counter = elo_league.common_duel_elo(scores[0] / scores[1])
+        new_elo, model_iter_counter = elo_league.common_duel_elo(scores[0] / (scores[1]+scores[0]))
 
         # Store statistics
         writer.add_scalar('Elo', new_elo, model_iter_counter)
