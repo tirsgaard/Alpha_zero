@@ -61,7 +61,7 @@ def gpu_worker(gpu_Q, job_size ,board_size, model):
         MCTS_queue = 1
         t = time.time()
         # The +1 next line is to take cases where a small job is submited
-        batch = torch.empty(((job_size+1) * MCTS_queue, 17, board_size, board_size))
+        batch = torch.empty((job_size*(MCTS_queue+1), 17, board_size, board_size))
         batch_test_length = 400
         time_spent = float("inf")
 
@@ -103,19 +103,19 @@ def gpu_worker(gpu_Q, job_size ,board_size, model):
 
 
                 f = open("speed.txt", "a")
-                print("Queue size:", MCTS_queue-1, file=f)
-                print("Number of games pr. week:", 7 * 24 * 3600 * num_eval / (time_spent * 80 * 400), file=f)
-                print("Time pr. eval: ", time_spent / num_eval, file=f)
+                print("Queue size:" + str(MCTS_queue-1), file=f)
+                print("Number of games pr. week:" +  str(7 * 24 * 3600 * num_eval / (time_spent * 80 * 400)), file=f)
+                print("Time pr. eval: " + str(time_spent / num_eval), file=f)
                 f.close()
                 num_eval = 0
-
+            """
             if ((num_eval % 1600 + 1) == 0):
                 f = open("speed.txt", "a")
                 print("Number of games pr. week:", 7*24*3600*num_eval/((time.time()-t)*80*400), file=f)
                 print("Time pr. eval: ", (time.time()-t)/num_eval, file=f)
                 f.close()
                 num_eval = 0
-            
+            """
     
     
 def rotate_S(S):
