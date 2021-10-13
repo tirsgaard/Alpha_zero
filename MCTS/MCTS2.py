@@ -44,7 +44,7 @@ class end_node:
         self.game_over = True
         self.z = z
     
-def gpu_worker(gpu_Q, batch_size ,board_size, model):
+def gpu_worker(gpu_Q, job_size ,board_size, model):
     with torch.no_grad():
         
         cuda = torch.cuda.is_available()
@@ -61,7 +61,7 @@ def gpu_worker(gpu_Q, batch_size ,board_size, model):
         MCTS_queue = 1
         t = time.time()
         # The +1 next line is to take cases where a small job is submited
-        batch = torch.empty(((batch_size+1) * MCTS_queue, 17, board_size, board_size))
+        batch = torch.empty(((job_size+1) * MCTS_queue, 17, board_size, board_size))
         batch_test_length = 400
         time_spent = float("inf")
 
@@ -69,10 +69,10 @@ def gpu_worker(gpu_Q, batch_size ,board_size, model):
             # Loop to get data
             i = 0
             jobs_indexes = []
-            queue_size = batch_size*MCTS_queue
+            queue_size = job_size*MCTS_queue
             while(i<queue_size):
                 try:
-                    gpu_jobs, pipe = gpu_Q.get(True,0.0001) # Get jobs
+                    gpu_jobs, pipe = gpu_Q.get(True, 0.0001) # Get jobs
                     pipe_queue.append(pipe) # Track job index with pipe index
                     num_jobs = gpu_jobs.shape[0] # Get number of jobs send
                     jobs_indexes.append(num_jobs) # Track number of jobs send
@@ -95,24 +95,26 @@ def gpu_worker(gpu_Q, batch_size ,board_size, model):
 
 
             if ((num_eval % (batch_test_length + 1)) == 0) and not calibration_done:
+                # Update calibration
                 calibration_done = time.time() - t > time_spent
                 time_spent = time.time() - t
                 MCTS_queue += 1 - 2*calibration_done # The calibration is for going back to optimal size
-                batch = torch.empty((batch_size * MCTS_queue, 17, board_size, board_size))
+                batch = torch.empty((job_size * (MCTS_queue+1), 17, board_size, board_size))
 
 
                 f = open("speed.txt", "a")
                 print("Queue size:", MCTS_queue-1, file=f)
-                print("Number of games pr. week:", 7 * 24 * 3600 * num_eval / ((time.time() - t) * 80 * 400), file=f)
-                print("Time pr. eval: ", (time.time() - t) / num_eval, file=f)
+                print("Number of games pr. week:", 7 * 24 * 3600 * num_eval / (time_spent * 80 * 400), file=f)
+                print("Time pr. eval: ", time_spent / num_eval, file=f)
                 f.close()
+                num_eval = 0
 
             if ((num_eval % 1600 + 1) == 0):
-                # Update calibration
                 f = open("speed.txt", "a")
                 print("Number of games pr. week:", 7*24*3600*num_eval/((time.time()-t)*80*400), file=f)
                 print("Time pr. eval: ", (time.time()-t)/num_eval, file=f)
                 f.close()
+                num_eval = 0
             
     
     
@@ -318,11 +320,7 @@ def MCTS(root_node, gpu_Q, n_MCTS, color, number_passes, MCTS_queue):
         k = 0
         for S, color, new_go_state, current_path, current_node, a_chosen in stored_jobs:
             i += 1 # Update i for each simulation
-            try:
-                P = P_array[k]
-            except:
-                print(P_array)
-                print("hello")
+            P = P_array[k]
             v = v_array[k][0]
             v = relative_value[color]*v
             # Reverse rotation of P 
