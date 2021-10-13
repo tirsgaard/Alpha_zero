@@ -423,7 +423,7 @@ def sim_game_worker(gpu_Q, n_MCTS, data_Q, v_resign, n_games, lock, game_counter
             game_counter.value += 1
             val = game_counter.value
         if not (val>n_games):
-            print("Beginning game :", val, " out of: ", n_games)
+            #print("Beginning game :", val, " out of: ", n_games)
             sim_game(gpu_Q, n_MCTS, data_Q, v_resign, MCTS_queue, board_size)
         else:
             return
@@ -809,7 +809,7 @@ def sim_games(N_games, n_MCTS, model, number_of_processes, v_resign, model2 = No
                     v_resign = conn_rec.recv(True, 0.1) # Receive new v_resign
                     break
                 except:
-                    pbar.update(game_counter.value)
+                    pbar.update_to(game_counter.value)
 
 
 
