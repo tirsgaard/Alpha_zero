@@ -62,7 +62,7 @@ def gpu_worker(gpu_Q, job_size ,board_size, model):
         t = time.time()
         # The +1 next line is to take cases where a small job is submited
         batch = torch.empty((job_size*(MCTS_queue+1), 17, board_size, board_size))
-        batch_test_length = 400
+        batch_test_length = 1000
         speed = float("-inf")
 
         while True:
@@ -96,10 +96,11 @@ def gpu_worker(gpu_Q, job_size ,board_size, model):
 
             if ((num_eval % (batch_test_length + 1)) == 0) and not calibration_done:
                 # Update calibration
+                # Update calibration
                 time_spent = time.time() - t
                 t = time.time()
-                calibration_done = num_eval/time_spent - t < speed
-                speed = num_eval/time_spent
+                calibration_done = (num_eval / time_spent) < speed
+                speed = num_eval / time_spent
 
                 MCTS_queue += 1 - 2*calibration_done # The calibration is for going back to optimal size
                 batch = torch.empty((job_size * (MCTS_queue+1), 17, board_size, board_size))
@@ -437,7 +438,7 @@ def sim_game_worker(gpu_Q, n_MCTS, data_Q, v_resign, n_games, lock, game_counter
         else:
             return
 
-def sim_duel_game_worker(gpu_Q1, gpu_Q2, N, MCTS_queue, winner_Q, n_games, lock, game_counter, seed):
+def sim_duel_game_worker(gpu_Q1, gpu_Q2, N, winner_Q, n_games, lock, game_counter, seed, MCTS_queue=4):
     np.random.seed(seed)
     while True:
         with lock:
@@ -803,9 +804,9 @@ def sim_games(N_games, n_MCTS, model, number_of_processes, v_resign, model2 = No
     for i in range(number_of_processes):
         seed = np.random.randint(int(2**31))
         if (duel==True):
-            procs.append(Process(target=sim_duel_game_worker, args=(gpu_Q, gpu_Q2, n_MCTS, winner_Q, N_games, lock, game_counter, seed)))
+            procs.append(Process(target=sim_duel_game_worker, args=(gpu_Q, gpu_Q2, n_MCTS, winner_Q, N_games, lock, game_counter, seed, n_MCTS)))
         else:
-            procs.append(Process(target=sim_game_worker, args=(gpu_Q, n_MCTS, data_Q, v_resign, N_games, lock, game_counter, seed)))
+            procs.append(Process(target=sim_game_worker, args=(gpu_Q, n_MCTS, data_Q, v_resign, N_games, lock, game_counter, seed, n_MCTS)))
      # Begin running games
     for p in procs:
         p.start()
