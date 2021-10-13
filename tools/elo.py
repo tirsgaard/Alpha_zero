@@ -31,7 +31,7 @@ class elo_league:
         # Get the elo of the newest model and add a new model
         known_player = self.get_latest_player()
         new_name = "model" + str(self.league_size)
-        new_elo = self.calculate_elo(self, known_player, new_name, wining_prob)
+        new_elo = self.calculate_elo(known_player, new_name, wining_prob)
         self.league_size += 1
         return new_elo, self.league_size
 

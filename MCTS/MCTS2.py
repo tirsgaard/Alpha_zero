@@ -5,6 +5,7 @@ import time
 import re
 import os
 import glob
+from tqdm import tqdm
 import sys
 
 # Import torch things
@@ -17,8 +18,6 @@ import torch.optim as optim
 import torch.nn.init as init
 from functools import partial
 
-# Relative paths for some reason do not work :(
-sys.path.append('/Users/tirsgaard/Google Drive/Alphago_zero')
 
 from model.go_model import ResNet, ResNetBasicBlock
 from tools.go import go_board
@@ -60,7 +59,7 @@ def gpu_worker(gpu_Q, job_size ,board_size, model):
         calibration_done = False
         MCTS_queue = 1
         t = time.time()
-        # The +1 next line is to take cases where a small job is submited
+        # The +1 next line is to take cases where a small job is submitted
         batch = torch.empty((job_size*(MCTS_queue+1), 17, board_size, board_size))
         batch_test_length = 1000
         speed = float("-inf")
@@ -94,8 +93,7 @@ def gpu_worker(gpu_Q, job_size ,board_size, model):
                 index_start = index_end
 
 
-            if ((num_eval % (batch_test_length + 1)) == 0) and not calibration_done:
-                # Update calibration
+            if ((num_eval % (batch_test_length + 1)) == 0) and (not calibration_done):
                 # Update calibration
                 time_spent = time.time() - t
                 t = time.time()
@@ -108,18 +106,10 @@ def gpu_worker(gpu_Q, job_size ,board_size, model):
 
                 f = open("speed.txt", "a")
                 print("Queue size:" + str(MCTS_queue-1), file=f)
-                print("Number of games pr. week:" +  str(7 * 24 * 3600 * num_eval / (time_spent * 80 * 400)), file=f)
+                print("Number of games pr. week:" + str(7 * 24 * 3600 * num_eval / (time_spent * 80 * 400)), file=f)
                 print("Time pr. eval: " + str(time_spent / num_eval), file=f)
                 f.close()
                 num_eval = 0
-            """
-            if ((num_eval % 1600 + 1) == 0):
-                f = open("speed.txt", "a")
-                print("Number of games pr. week:", 7*24*3600*num_eval/((time.time()-t)*80*400), file=f)
-                print("Time pr. eval: ", (time.time()-t)/num_eval, file=f)
-                f.close()
-                num_eval = 0
-            """
     
     
 def rotate_S(S):
@@ -426,7 +416,7 @@ def data_handler(data_Q, num_games, conn_v):
     # Load data with np.load(temp_name)
     conn_v.send(new_v_resign)
     
-def sim_game_worker(gpu_Q, n_MCTS, data_Q, v_resign, n_games, lock, game_counter, seed, MCTS_queue=4):
+def sim_game_worker(gpu_Q, n_MCTS, data_Q, v_resign, n_games, lock, game_counter, seed, MCTS_queue=4, board_size=9):
     np.random.seed(seed)
     while True:
         with lock:
@@ -434,18 +424,18 @@ def sim_game_worker(gpu_Q, n_MCTS, data_Q, v_resign, n_games, lock, game_counter
             val = game_counter.value
         if not (val>n_games):
             print("Beginning game :", val, " out of: ", n_games)
-            sim_game(gpu_Q, n_MCTS, data_Q, v_resign, MCTS_queue)
+            sim_game(gpu_Q, n_MCTS, data_Q, v_resign, MCTS_queue, board_size)
         else:
             return
 
-def sim_duel_game_worker(gpu_Q1, gpu_Q2, N, winner_Q, n_games, lock, game_counter, seed, MCTS_queue=4):
+def sim_duel_game_worker(gpu_Q1, gpu_Q2, N, winner_Q, n_games, lock, game_counter, seed, MCTS_queue=4, board_size=9):
     np.random.seed(seed)
     while True:
         with lock:
             done = game_counter.value>n_games
             game_counter.value += 1
         if not done:
-            duel_game(gpu_Q1, gpu_Q2, N, winner_Q, MCTS_queue)
+            duel_game(gpu_Q1, gpu_Q2, N, winner_Q, MCTS_queue, board_size)
         else:
             return
 
@@ -624,7 +614,7 @@ def duel_game(gpu_Q1, gpu_Q2, N, winner_Q, MCTS_queue, board_size=9):
         relative_value =  {"black": 1,
                            "white": -1}
         S = go_game.get_state(color)
-        S, rotation, reflection  = rotate_S(S)
+        S, rotation, reflection = rotate_S(S)
         
         S = np.expand_dims(S,0)
         
@@ -804,21 +794,29 @@ def sim_games(N_games, n_MCTS, model, number_of_processes, v_resign, model2 = No
     for i in range(number_of_processes):
         seed = np.random.randint(int(2**31))
         if (duel==True):
-            procs.append(Process(target=sim_duel_game_worker, args=(gpu_Q, gpu_Q2, n_MCTS, winner_Q, N_games, lock, game_counter, seed, n_MCTS)))
+            procs.append(Process(target=sim_duel_game_worker, args=(gpu_Q, gpu_Q2, n_MCTS, winner_Q, N_games, lock, game_counter, seed, batch_size, board_size)))
         else:
-            procs.append(Process(target=sim_game_worker, args=(gpu_Q, n_MCTS, data_Q, v_resign, N_games, lock, game_counter, seed, n_MCTS)))
+            procs.append(Process(target=sim_game_worker, args=(gpu_Q, n_MCTS, data_Q, v_resign, N_games, lock, game_counter, seed, batch_size, board_size)))
      # Begin running games
     for p in procs:
         p.start()
     # Join processes
 
     if (duel==False):
-        # Receive new v_resign
-        v_resign = conn_rec.recv()
+        with tqdm(total=100) as pbar:
+            while True:
+                try:
+                    v_resign = conn_rec.recv(True, 0.1) # Receive new v_resign
+                    break
+                except:
+                    pbar.update(game_counter.value)
+
+
+
     else:
         player1_wins = 0
         player2_wins = 0
-        for i in range(N_games):
+        for i in tqdm(range(N_games)):
             player1_won = winner_Q.get(True)
             if (player1_won==1):
                 player1_wins += 1
