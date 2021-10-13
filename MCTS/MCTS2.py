@@ -442,7 +442,6 @@ def sim_duel_game_worker(gpu_Q1, gpu_Q2, N, winner_Q, n_games, lock, game_counte
     
 
 def sim_game(gpu_Q, n_MCTS, data_Q, v_resign, MCTS_queue=4, board_size=9):
-    print("Starting game")
     no_resign = np.random.rand(1)[0]>0.95
     
     # Hyperparameters
@@ -803,13 +802,13 @@ def sim_games(N_games, n_MCTS, model, number_of_processes, v_resign, model2 = No
     # Join processes
 
     if (duel==False):
-        with tqdm(total=100) as pbar:
+        with tqdm(total=100, update_to=True) as pbar:
             while True:
                 try:
-                    v_resign = conn_rec.recv(True, 0.1) # Receive new v_resign
+                    v_resign = conn_rec.get(True, 0.1) # Receive new v_resign
                     break
                 except:
-                    pbar.update_to(game_counter.value)
+                    pbar.update(game_counter.value)
 
 
 
