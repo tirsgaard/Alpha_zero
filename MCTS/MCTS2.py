@@ -806,11 +806,11 @@ def sim_games(N_games, n_MCTS, model, number_of_processes, v_resign, model2 = No
             old_iter = 0
             while True:
                 try:
-                    v_resign = conn_rec.get(True, 0.1) # Receive new v_resign
+                    v_resign = conn_rec.get(True, 1) # Receive new v_resign
                     break
                 except:
                     new_iter = game_counter.value
-                    pbar.update(new_iter)
+                    pbar.update(new_iter - old_iter)
                     old_iter = new_iter
 
 
