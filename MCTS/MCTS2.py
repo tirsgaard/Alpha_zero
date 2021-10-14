@@ -802,13 +802,16 @@ def sim_games(N_games, n_MCTS, model, number_of_processes, v_resign, model2 = No
     # Join processes
 
     if (duel==False):
-        with tqdm(total=100, update_to=True) as pbar:
+        with tqdm(total=N_games) as pbar:
+            old_iter = 0
             while True:
                 try:
                     v_resign = conn_rec.get(True, 0.1) # Receive new v_resign
                     break
                 except:
-                    pbar.update(game_counter.value)
+                    new_iter = game_counter.value
+                    pbar.update(new_iter)
+                    old_iter = new_iter
 
 
 
