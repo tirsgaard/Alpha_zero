@@ -770,7 +770,7 @@ def sim_games(N_games, n_MCTS, model, number_of_processes, v_resign, model2 = No
         data_Q = Queue()
         # Also make pipe for receiving v_resign
         conn_rec, conn_send = Pipe(False)
-        
+
         p_data = Process(target=data_handler, args=(data_Q, N_games, conn_send))
         process_workers.append(p_data)
     else:
@@ -805,15 +805,13 @@ def sim_games(N_games, n_MCTS, model, number_of_processes, v_resign, model2 = No
         with tqdm(total=N_games) as pbar:
             old_iter = 0
             while True:
-                try:
-                    v_resign = conn_rec.get(True, 1) # Receive new v_resign
+                if conn_rec.poll(1):
+                    v_resign = conn_rec.recv()  # Receive new v_resign
                     break
-                except:
+                else:
                     new_iter = game_counter.value
                     pbar.update(new_iter - old_iter)
                     old_iter = new_iter
-
-
 
     else:
         player1_wins = 0
