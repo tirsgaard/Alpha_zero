@@ -98,14 +98,11 @@ if __name__ == '__main__':
         training_model.eval()
         with torch.no_grad():
             scores = sim_games(N_duel_games,
-                               N_MCTS_sim,
                                training_model,
-                               number_of_threads,
                                v_resign,
+                               MCTS_settings,
                                model2=best_model,
-                               duel=True,
-                               batch_size=self_play_batch_size,
-                               board_size=board_size)
+                               duel=True)
 
         # Find best model
         # Here the model has to win atleast 60% of the games
