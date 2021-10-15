@@ -21,17 +21,24 @@ if __name__ == '__main__':
 
 
     ## Hyper parameters
-    number_of_threads = 16
-    self_play_batch_size = 16
-    board_size = 9
-    N_training_games = 2000
-    MCTS_queue = 8
-    N_MCTS_sim = 400
-    N_duel_games = 100
+    number_of_threads = 16 # Number of threads / games of go to run in parallel
+    n_parallel_explorations = 16 # Number of pseudo-parrallel runs of the MCTS, note >16 reduces accuracy significantly
+    N_MCTS_sim = 400 # Number of MCTS simulations for each move
+    board_size = 9 # Board size of go
+    N_training_games = 2000 # Number of games to run each
+    #MCTS_queue = 8
+
+    N_duel_games = 100 # Number of games to play each duel
     N_turns = 500000
     train_batch_size = 512
     num_epochs = 320
     elo_league = elo_league()
+
+    MCTS_settings = {"number_of_threads" : number_of_threads,
+                         "n_parallel_explorations" : n_parallel_explorations,
+                        "board_size" : board_size,
+                        "N_training_games" : N_training_games,
+                        "N_MCTS_sim" : N_MCTS_sim}
 
     # GPU things
     cuda = torch.cuda.is_available()
@@ -74,12 +81,9 @@ if __name__ == '__main__':
             ## Generate new data for training
             with torch.no_grad():
                 v_resign = sim_games(N_training_games,
-                                     N_MCTS_sim,
                                      best_model,
-                                     number_of_threads,
                                      v_resign,
-                                     batch_size=self_play_batch_size,
-                                     board_size=board_size)
+                                     MCTS_settings)
 
             writer.add_scalar('v_resign', v_resign, loop_counter)
 

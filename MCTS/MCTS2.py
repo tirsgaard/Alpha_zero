@@ -43,9 +43,10 @@ class end_node:
         self.game_over = True
         self.z = z
     
-def gpu_worker(gpu_Q, job_size ,board_size, model):
+def gpu_worker(gpu_Q, model, MCTS_settings):
     with torch.no_grad():
-        
+        board_size = MCTS_settings["board_size"]
+        n_parallel_explorations = MCTS_settings["n_parallel_explorations"]
         cuda = torch.cuda.is_available()
         num_eval = 0
         pipe_queue = deque([])
@@ -60,7 +61,7 @@ def gpu_worker(gpu_Q, job_size ,board_size, model):
         MCTS_queue = 1
         t = time.time()
         # The +1 next line is to take cases where a small job is submitted
-        batch = torch.empty((job_size*(MCTS_queue+1), 17, board_size, board_size))
+        batch = torch.empty((n_parallel_explorations*(MCTS_queue+1), 17, board_size, board_size))
         batch_test_length = 1000
         speed = float("-inf")
 
@@ -68,7 +69,7 @@ def gpu_worker(gpu_Q, job_size ,board_size, model):
             # Loop to get data
             i = 0
             jobs_indexes = []
-            queue_size = job_size*MCTS_queue
+            queue_size = n_parallel_explorations*MCTS_queue
             while(i<queue_size):
                 try:
                     gpu_jobs, pipe = gpu_Q.get(True, 0.0001) # Get jobs
@@ -101,7 +102,7 @@ def gpu_worker(gpu_Q, job_size ,board_size, model):
                 speed = num_eval / time_spent
 
                 MCTS_queue += 1 - 2*calibration_done # The calibration is for going back to optimal size
-                batch = torch.empty((job_size * (MCTS_queue+1), 17, board_size, board_size))
+                batch = torch.empty((n_parallel_explorations * (MCTS_queue+1), 17, board_size, board_size))
 
 
                 f = open("speed.txt", "a")
@@ -137,15 +138,17 @@ def reverse_rotate(P, rotation, reflection, board_shape):
     return P
     
     
-def MCTS(root_node, gpu_Q, n_MCTS, color, number_passes, MCTS_queue):
+def MCTS(root_node, gpu_Q, color, number_passes, MCTS_settings):
     n_vl = 3 #Virtual loss count
-    board_size = root_node.go_state.board_size
+    board_size = MCTS_settings["board_size"]
+    n_parallel_explorations = MCTS_settings["n_parallel_explorations"]
+    N_MCTS_sim = MCTS_settings["N_MCTS_sim"]
     n_positions = board_size*board_size
     start_color = color
     turn_switcher = {"black": "white",
                      "white": "black"}
     # Switch for adding calculated v relative to black
-    relative_value =  {"black": 1,
+    relative_value = {"black": 1,
                      "white": -1}
     # Define pipe for GPU process
     conn_rec, conn_send = Pipe(False)
@@ -154,10 +157,10 @@ def MCTS(root_node, gpu_Q, n_MCTS, color, number_passes, MCTS_queue):
     
     # Begin simulations
     i = 0
-    while i<n_MCTS: # Keep number of simulations below the set N
+    while i<N_MCTS_sim: # Keep number of simulations below the set N
         stored_jobs = []
         empty = False
-        for j in range(MCTS_queue):
+        for j in range(n_parallel_explorations):
             current_path = deque([])
             current_node = root_node
             color = start_color
@@ -415,33 +418,32 @@ def data_handler(data_Q, num_games, conn_v):
     np.savez(name, S=S_array, P=P_array, z=z_array)
     # Load data with np.load(temp_name)
     conn_v.send(new_v_resign)
-    
-def sim_game_worker(gpu_Q, n_MCTS, data_Q, v_resign, n_games, lock, game_counter, seed, MCTS_queue=4, board_size=9):
+
+def sim_game_worker(gpu_Q, data_Q, v_resign, n_games, lock, game_counter, seed, MCTS_settings):
     np.random.seed(seed)
     while True:
         with lock:
             game_counter.value += 1
             val = game_counter.value
         if not (val>n_games):
-            #print("Beginning game :", val, " out of: ", n_games)
-            sim_game(gpu_Q, n_MCTS, data_Q, v_resign, MCTS_queue, board_size)
+            sim_game(gpu_Q, data_Q, v_resign, MCTS_settings)
         else:
             return
 
-def sim_duel_game_worker(gpu_Q1, gpu_Q2, N, winner_Q, n_games, lock, game_counter, seed, MCTS_queue=4, board_size=9):
+def sim_duel_game_worker(gpu_Q1, gpu_Q2, winner_Q, n_games, lock, game_counter, seed, MCTS_settings):
     np.random.seed(seed)
     while True:
         with lock:
             done = game_counter.value>n_games
             game_counter.value += 1
         if not done:
-            duel_game(gpu_Q1, gpu_Q2, N, winner_Q, MCTS_queue, board_size)
+            duel_game(gpu_Q1, gpu_Q2, winner_Q, MCTS_settings)
         else:
             return
 
     
 
-def sim_game(gpu_Q, n_MCTS, data_Q, v_resign, MCTS_queue=4, board_size=9):
+def sim_game(gpu_Q, data_Q, v_resign, MCTS_settings):
     no_resign = np.random.rand(1)[0]>0.95
     
     # Hyperparameters
@@ -454,6 +456,7 @@ def sim_game(gpu_Q, n_MCTS, data_Q, v_resign, MCTS_queue=4, board_size=9):
                      "white": -1}
     turn_switcher = {"black": "white",
                      "white": "black"}
+    board_size = MCTS_settings["board_size"]
     n_positions = board_size*board_size
     # Define pipe for GPU process
     conn_rec, conn_send = Pipe(False)
@@ -492,7 +495,7 @@ def sim_game(gpu_Q, n_MCTS, data_Q, v_resign, MCTS_queue=4, board_size=9):
         # Case where early temperature is used
         if (n_rounds<=temp_switch):
             # Simulate MCTS
-            root_node = MCTS(root_node, gpu_Q , n_MCTS, turn_color, number_passes, MCTS_queue)
+            root_node = MCTS(root_node, gpu_Q, turn_color, number_passes, MCTS_settings)
 
             # Compute legal policy
             pi_legal = root_node.N/root_node.N_total
@@ -506,7 +509,7 @@ def sim_game(gpu_Q, n_MCTS, data_Q, v_resign, MCTS_queue=4, board_size=9):
             root_node.P = (1-epsilon)*root_node.P+epsilon*eta
             
             # Simulate MCTS
-            root_node = MCTS(root_node, gpu_Q, n_MCTS, turn_color, number_passes, MCTS_queue)
+            root_node = MCTS(root_node, gpu_Q, turn_color, number_passes, MCTS_settings)
             
             # Compute legal actions visit count (needed for storing)
             pi_legal = root_node.N/root_node.N_total
@@ -606,7 +609,7 @@ def sim_game(gpu_Q, n_MCTS, data_Q, v_resign, MCTS_queue=4, board_size=9):
         data_Q.put([S_array, P_array, z_array, None])
 
 
-def duel_game(gpu_Q1, gpu_Q2, N, winner_Q, MCTS_queue, board_size=9):
+def duel_game(gpu_Q1, gpu_Q2, N, winner_Q, MCTS_settings):
     def gen_node(gpu_Q, go_game, color, conn_rec, conn_send, game_beginning):
         # A function for generating a node of If no node of board state exists
         
@@ -646,7 +649,7 @@ def duel_game(gpu_Q1, gpu_Q2, N, winner_Q, MCTS_queue, board_size=9):
             root_node.illigal_board = (legal_board-1)*1000
             
         return root_node, v
-
+    board_size = MCTS_settings["board_size"]
     n_positions = board_size*board_size
     # Select player colors
     coin_toss = np.random.randint(2)
@@ -689,7 +692,7 @@ def duel_game(gpu_Q1, gpu_Q2, N, winner_Q, MCTS_queue, board_size=9):
             not_player = black
          
         # Simulate MCTS
-        root_node = MCTS(root_node, player, N, turn_color, number_passes, MCTS_queue)
+        root_node = MCTS(root_node, player, turn_color, number_passes, MCTS_settings)
         
         # Compute legal policy
         pi_legal = root_node.N/root_node.N_total
@@ -698,7 +701,6 @@ def duel_game(gpu_Q1, gpu_Q2, N, winner_Q, MCTS_queue, board_size=9):
         action = np.random.choice(n_positions+1, size=1, p=pi_legal)[0]
         
         # Convert and take action
-        #print("Move n. ",n_rounds, "New move was: ", action, "color was: ", turn_color)
         if (action==n_positions):
                 go_game.move('pass', turn_color)
                 number_passes += 1
@@ -758,7 +760,8 @@ def duel_game(gpu_Q1, gpu_Q2, N, winner_Q, MCTS_queue, board_size=9):
     winner_Q.put(player1_won)
     return
         
-def sim_games(N_games, n_MCTS, model, number_of_processes, v_resign, model2 = None, duel=False, batch_size = 8, board_size = 9):
+def sim_games(N_games, model, v_resign, MCTS_settings, model2 = None, duel=False):
+    number_of_processes = MCTS_settings["number_of_threads"]
     #### Function for generating games
     process_workers = []
     torch.multiprocessing.set_start_method('spawn', force=True) # This is important for generating a worker with torch support
@@ -776,14 +779,14 @@ def sim_games(N_games, n_MCTS, model, number_of_processes, v_resign, model2 = No
     else:
         winner_Q = Queue()
         gpu_Q2 = Queue()
-        process_workers.append(Process(target=gpu_worker, args=(gpu_Q2, batch_size, board_size, model2)))
+        process_workers.append(Process(target=gpu_worker, args=(gpu_Q2, model2, MCTS_settings)))
     # Make counter and lock
     game_counter = Value('i', 0)
     lock = Lock()
     
     # Make process for gpu worker and data_loader
     
-    process_workers.append(Process(target=gpu_worker, args=(gpu_Q, batch_size, board_size, model)))
+    process_workers.append(Process(target=gpu_worker, args=(gpu_Q, model, MCTS_settings)))
     # Start gpu and data_loader worker
     for p in process_workers:
         p.start()
@@ -793,9 +796,9 @@ def sim_games(N_games, n_MCTS, model, number_of_processes, v_resign, model2 = No
     for i in range(number_of_processes):
         seed = np.random.randint(int(2**31))
         if (duel==True):
-            procs.append(Process(target=sim_duel_game_worker, args=(gpu_Q, gpu_Q2, n_MCTS, winner_Q, N_games, lock, game_counter, seed, batch_size, board_size)))
+            procs.append(Process(target=sim_duel_game_worker, args=(gpu_Q, gpu_Q2, winner_Q, N_games, lock, game_counter, seed, MCTS_settings)))
         else:
-            procs.append(Process(target=sim_game_worker, args=(gpu_Q, n_MCTS, data_Q, v_resign, N_games, lock, game_counter, seed, batch_size, board_size)))
+            procs.append(Process(target=sim_game_worker, args=(gpu_Q, data_Q, v_resign, N_games, lock, game_counter, seed, MCTS_settings)))
      # Begin running games
     for p in procs:
         p.start()
@@ -805,10 +808,11 @@ def sim_games(N_games, n_MCTS, model, number_of_processes, v_resign, model2 = No
         with tqdm(total=N_games) as pbar:
             old_iter = 0
             while True:
-                if conn_rec.poll(1):
+                if conn_rec.poll(1): # Check if received anything (self play is done)
                     v_resign = conn_rec.recv()  # Receive new v_resign
                     break
                 else:
+                    # Update loading bar
                     new_iter = game_counter.value
                     pbar.update(new_iter - old_iter)
                     old_iter = new_iter
