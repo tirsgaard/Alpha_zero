@@ -12,6 +12,7 @@ import numpy as np
 import torch
 import sys
 import torch.optim as optim
+import warnings
 
 sys.path.append("../model")
 from model import go_model
@@ -106,7 +107,7 @@ def load_latest_model():
         number_list.append(int(re.sub("[^0-9]", "",file)))
     
     if (number_list==[]):
-        raise TypeError("No model was found in path " + subdirectory)
+        warnings.warn("No model was found in path " + subdirectory, RuntimeWarning)
         return None
     # Get max number
     latest_model = max(number_list)

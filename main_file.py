@@ -24,7 +24,7 @@ if __name__ == '__main__':
     number_of_threads = 16 # Number of threads / games of go to run in parallel
     n_parallel_explorations = 16 # Number of pseudo-parrallel runs of the MCTS, note >16 reduces accuracy significantly
     N_MCTS_sim = 400 # Number of MCTS simulations for each move
-    board_size = 9 # Board size of go
+    board_size = 5 # Board size of go
     N_training_games = 2000 # Number of games to run each
     #MCTS_queue = 8
 
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     training_model = load_latest_model()
 
     if (best_model == None):
-        best_model = resnet40(17, 128, 9)
+        best_model = resnet40(17, 128, board_size=board_size)
         save_model(best_model)
         training_model = load_latest_model()
 

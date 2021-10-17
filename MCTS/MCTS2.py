@@ -24,7 +24,7 @@ from tools.go import go_board
 
 class state_node:
     def __init__(self, go_state, P, color):
-        board_size = 9
+        board_size = go_state.board_size
         self.go_state = go_state
         self.N_total = 0
         self.N = np.zeros((board_size*board_size+1))
