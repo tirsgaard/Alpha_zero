@@ -609,7 +609,7 @@ def sim_game(gpu_Q, data_Q, v_resign, MCTS_settings):
         data_Q.put([S_array, P_array, z_array, None])
 
 
-def duel_game(gpu_Q1, gpu_Q2, N, winner_Q, MCTS_settings):
+def duel_game(gpu_Q1, gpu_Q2, winner_Q, MCTS_settings):
     def gen_node(gpu_Q, go_game, color, conn_rec, conn_send, game_beginning):
         # A function for generating a node of If no node of board state exists
         

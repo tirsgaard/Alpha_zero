@@ -7,8 +7,6 @@ Created on Tue Nov  5 22:51:02 2019
 """
 
 import sys
-# Relative paths for some reason do not work :(
-sys.path.append('/Users/tirsgaard/Google Drive/Alphago_zero')
 from model.go_model import ResNet, ResNetBasicBlock
 from tools.go import go_board
 from multiprocessing import Process, Queue, Pipe, Value, Lock, Manager, Pool
