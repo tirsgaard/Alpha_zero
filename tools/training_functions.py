@@ -17,10 +17,10 @@ import warnings
 sys.path.append("../model")
 from model import go_model
 
-def load_saved_games(N_data_points):
+def load_saved_games(N_data_points, board_size):
     # Construct large numpy array of data
-    S_array = np.empty((N_data_points, 17, 9, 9), dtype=bool)
-    Pi_array = np.empty((N_data_points, 82), dtype=float)
+    S_array = np.empty((N_data_points, 17, board_size, board_size), dtype=bool)
+    Pi_array = np.empty((N_data_points, board_size**2+1), dtype=float)
     z_array = np.zeros((N_data_points), dtype=float)
     
     subdirectory = "games_data/"
@@ -70,7 +70,7 @@ def load_saved_games(N_data_points):
     return S_array, Pi_array, z_array, data_counter+1
 
 def save_model(model):
-    subdirectory = "saved_models/"
+    subdirectory = "model/saved_models/"
     os.makedirs(subdirectory, exist_ok=True)
     # Find larges number of games found
     # Get files
@@ -121,11 +121,11 @@ def load_latest_model():
         model = torch.load(load_name, map_location=torch.device('cpu'))
     return model
 
-def loss_function(Pi, z, P, v, batch_size):
+def loss_function(Pi, z, P, v, batch_size, board_size):
     v = torch.squeeze(v)
     value_error = torch.mean((v - z)**2)
     inner = torch.log(1e-8 + P)
-    policy_error = torch.bmm(Pi.view(batch_size, 1, 82), inner.view(batch_size, 82, 1)).mean()
+    policy_error = torch.bmm(Pi.view(batch_size, 1, board_size**2+1), inner.view(batch_size, board_size**2+1, 1)).mean()
     total_error = value_error - policy_error
     return total_error, value_error, -policy_error
 
