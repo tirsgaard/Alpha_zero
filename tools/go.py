@@ -2,11 +2,6 @@ import numpy as np
 import pickle as cPickle
 from collections import deque, Counter
 import itertools
-import gc
-from line_profiler_pycharm import profile
-
-
-
 def deep_copy_array(board):
     board_size = board.shape[0]
     copy_dic = {}
@@ -100,7 +95,6 @@ class go_board:
         self.liberties[-1, -1] = [2]
         self.groups = np.zeros((self.board_size, self.board_size), dtype="int16")
 
-    @profile
     def copy_game(self):
         ### Metod for deep copying of object
         # gc.disable()

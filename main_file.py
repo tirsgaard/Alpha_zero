@@ -22,10 +22,10 @@ if __name__ == '__main__':
 
     ## Hyper parameters
     number_of_threads = 16 # Number of threads / games of go to run in parallel
-    n_parallel_explorations = 16 # Number of pseudo-parrallel runs of the MCTS, note >16 reduces accuracy significantly
-    N_MCTS_sim = 400 # Number of MCTS simulations for each move
+    n_parallel_explorations = 4 # Number of pseudo-parrallel runs of the MCTS, note >16 reduces accuracy significantly
+    N_MCTS_sim = 100 # Number of MCTS simulations for each move
     board_size = 5 # Board size of go
-    N_training_games = 2000 # Number of games to run each
+    N_training_games = 200 # Number of games to run each
     #MCTS_queue = 8
 
     N_duel_games = 100 # Number of games to play each duel

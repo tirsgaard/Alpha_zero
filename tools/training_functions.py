@@ -130,12 +130,14 @@ def loss_function(Pi, z, P, v, batch_size, board_size):
     return total_error, value_error, -policy_error
 
 class model_trainer:
-    def __init__(self, writer, N_turns=5*10**5, num_epochs = 320, train_batch_size = 512):
+    def __init__(self, writer, MCTS_settings, N_turns=5*10**5, num_epochs = 320, train_batch_size = 512):
         self.writer = writer
+        self.MCTS_settings = MCTS_settings
         self.criterion = loss_function
         self.N_turns = N_turns
         self.num_epochs = num_epochs
         self.train_batch_size = train_batch_size
+        self.board_size = self.MCTS_settings["board_size"]
         self.training_counter = 0
 
     def train(self, training_model):
@@ -150,7 +152,7 @@ class model_trainer:
         training_model.train()
         optimizer = optim.SGD(training_model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=10**-4)
         # Load newest data
-        S, Pi, z, n_points = load_saved_games(self.N_turns)
+        S, Pi, z, n_points = load_saved_games(self.N_turns, self.board_sizeself.board_size)
         S = torch.from_numpy(S).float().cuda()
         Pi = torch.from_numpy(Pi).float().cuda()
         z = torch.from_numpy(z).float().cuda()
