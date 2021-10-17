@@ -62,7 +62,7 @@ if __name__ == '__main__':
         best_model.cuda()
         training_model.cuda()
 
-    trainer = model_trainer(writer)
+    trainer = model_trainer(writer, MCTS_settings)
 
     ## define variables to be used
     v_resign = float("-inf")
