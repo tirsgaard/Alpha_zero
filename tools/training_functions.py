@@ -152,10 +152,10 @@ class model_trainer:
         training_model.train()
         optimizer = optim.SGD(training_model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=10**-4)
         # Load newest data
-        S, Pi, z, n_points = load_saved_games(self.N_turns, self.board_sizeself.board_size)
-        S = torch.from_numpy(S).float().cuda()
-        Pi = torch.from_numpy(Pi).float().cuda()
-        z = torch.from_numpy(z).float().cuda()
+        S, Pi, z, n_points = load_saved_games(self.N_turns, self.board_size)
+        S = torch.from_numpy(S).float()
+        Pi = torch.from_numpy(Pi).float()
+        z = torch.from_numpy(z).float()
         # Train
         for i in range(self.num_epochs):
             self.training_counter += 1
@@ -169,7 +169,7 @@ class model_trainer:
             # Optimize
             optimizer.zero_grad()
             P_batch, v_batch = training_model.forward(S_batch)
-            loss, v_loss, P_loss = self.criterion(Pi_batch, z_batch, P_batch, v_batch, self.train_batch_size)
+            loss, v_loss, P_loss = self.criterion(Pi_batch, z_batch, P_batch, v_batch, self.train_batch_size, self.board_size)
             loss.backward()
             optimizer.step()
 
@@ -182,38 +182,4 @@ class model_trainer:
 
             if (i % 100 == 0):
                 print("Fraction of training done: ", i / self.num_epochs)
-
-
-def train_model(training_model, learning_rate, ):
-    training_model.train()
-    optimizer = optim.SGD(training_model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=10 ** -4)
-
-    # Load newest data
-    S, Pi, z, n_points = load_saved_games(N_turns)
-    S = torch.from_numpy(S).float().cuda()
-    Pi = torch.from_numpy(Pi).float().cuda()
-    z = torch.from_numpy(z).float().cuda()
-    for i in range(num_epochs):
-        training_counter += 1
-
-        # generate batch
-        index = np.random.randint(0, n_points - 1, size=train_batch_size)
-        Pi_batch = Pi[index]
-        z_batch = z[index]
-        S_batch = S[index]
-
-        # Optimize
-        optimizer.zero_grad()
-        P_batch, v_batch = training_model.forward(S_batch)
-        loss, v_loss, P_loss = criterion(Pi_batch, z_batch, P_batch, v_batch, train_batch_size)
-        loss.backward()
-        optimizer.step()
-
-        writer.add_histogram('Output/v', v_batch, training_counter)
-        writer.add_histogram('Output/P', P_batch, training_counter)
-        writer.add_histogram('Output/Pi', Pi_batch, training_counter)
-        writer.add_scalar('Total_loss/train', loss, training_counter)
-        writer.add_scalar('value_loss/train', v_loss, training_counter)
-        writer.add_scalar('Policy_loss/train', P_loss, training_counter)
-
 
