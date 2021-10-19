@@ -140,6 +140,11 @@ class model_trainer:
         self.board_size = self.MCTS_settings["board_size"]
         self.training_counter = 0
 
+        # Check for cuda
+        # GPU things
+        self.cuda = torch.cuda.is_available()
+
+
     def train(self, training_model):
         # Select learning rate
         if (self.training_counter < 10 ** 5):
@@ -156,6 +161,12 @@ class model_trainer:
         S = torch.from_numpy(S).float()
         Pi = torch.from_numpy(Pi).float()
         z = torch.from_numpy(z).float()
+        # Convert to cuda if GPU support
+        if self.cuda:
+            S = S.cuda()
+            Pi = Pi.cuda()
+            z = z.cuda()
+
         # Train
         for i in range(self.num_epochs):
             self.training_counter += 1
