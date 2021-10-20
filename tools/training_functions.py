@@ -41,7 +41,7 @@ def load_saved_games(N_data_points, board_size, subdir, only_last_epochs=False):
         S = data['S']
         Pi = data['P']
         z = data['z']
-        return S, Pi, z
+        return S, Pi, z, S.shape[0]
 
     # Construct large numpy array of data
     S_array = np.empty((N_data_points, 17, board_size, board_size), dtype=bool)
@@ -169,7 +169,7 @@ class model_trainer:
         # Note this does not permutate samples!
         N_samples = S.shape[0]
         samples = []
-        n_batches = np.ceil(N_samples/batch_size)
+        n_batches = int(np.ceil(N_samples/batch_size))
 
         index = 0
         for i in range(n_batches):
@@ -228,15 +228,15 @@ class model_trainer:
                 print("Fraction of training done: ", i / self.num_epochs)
 
                 # Run validation
-                S, Pi, z, n_points = load_saved_games(self.N_turns, self.board_size, "validation",
+                S_val, Pi_val, z_val, n_points = load_saved_games(self.N_turns, self.board_size, "validation",
                                                       only_last_epochs=True)
-                S, Pi, z = self.convert_torch(S, Pi, z)
-                epoch_samples = self.gen_epoch(S, Pi, z, self.batch_size)
+                S_val, Pi_val, z_val = self.convert_torch(S_val, Pi_val, z_val)
+                epoch_samples = self.gen_epoch(S_val, Pi_val, z_val, self.train_batch_size)
                 loss_list, v_loss_list, P_loss_list = [], [], []
                 training_model.eval()
 
                 with torch.no_grad():
-                    for S, Pi, z in epoch_samples:
+                    for S_batch, Pi_batch, z_batch in epoch_samples:
                         P_batch, v_batch = training_model.forward(S_batch)
                         loss, v_loss, P_loss = self.criterion(Pi_batch, z_batch, P_batch, v_batch,
                                                               self.train_batch_size,
@@ -245,9 +245,9 @@ class model_trainer:
                         v_loss_list.append(v_loss)
                         P_loss_list.append(P_loss)
 
-                    loss_val = torch.mean(loss_list)
-                    v_loss_val = torch.mean(v_loss_list)
-                    P_loss_val = torch.mean(P_loss_list)
+                    loss_val = torch.mean(torch.tensor(loss_list))
+                    v_loss_val = torch.mean(torch.tensor(v_loss_list))
+                    P_loss_val = torch.mean(torch.tensor(P_loss_list))
                 self.writer.add_scalar('Total_loss/validation', loss_val, self.training_counter)
                 self.writer.add_scalar('value_loss/validation', v_loss_val, self.training_counter)
                 self.writer.add_scalar('Policy_loss/validation', P_loss_val, self.training_counter)
