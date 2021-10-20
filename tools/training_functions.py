@@ -222,7 +222,9 @@ class model_trainer:
 
 
 
-            if (i % 100 == 0):
+            if ((i % 100 == 0) and (self.training_counter >= self.num_epochs)):
+                # number of epochs should be above one loop, so validation data exists
+
                 print("Fraction of training done: ", i / self.num_epochs)
 
                 # Run validation

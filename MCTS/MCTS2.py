@@ -799,10 +799,9 @@ def sim_games(N_games, model, v_resign, MCTS_settings, model2=None, duel=False):
     # Make queues for sending data
     gpu_Q = Queue()  # For sending board positions to GPU
     data_Q = Queue()  # For sending game data back for training and validation
-
+    conn_rec, conn_send = Pipe(False)
     if duel == False:
         # Also make pipe for receiving v_resign
-        conn_rec, conn_send = Pipe(False)
         data_sub = "train"
     else:
         winner_Q = Queue()
