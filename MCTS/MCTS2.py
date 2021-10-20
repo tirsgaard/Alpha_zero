@@ -346,7 +346,7 @@ def MCTS(root_node, gpu_Q, color, number_passes, MCTS_settings):
     return root_node
 
 
-def data_handler(data_Q, num_games, conn_v):
+def data_handler(data_Q, num_games, conn_v, subdir):
     i = 0
     game_list = []
     total_moves = 0
@@ -391,7 +391,7 @@ def data_handler(data_Q, num_games, conn_v):
         new_v_resign = -float("inf")
     print(new_v_resign)
     # Make directory if missing
-    subdirectory = "games_data/"
+    subdirectory = "games_data/" + subdir + "/"
     os.makedirs(subdirectory, exist_ok=True)
 
     # Find larges number of games found
@@ -429,14 +429,14 @@ def sim_game_worker(gpu_Q, data_Q, v_resign, n_games, lock, game_counter, seed, 
             return
 
 
-def sim_duel_game_worker(gpu_Q1, gpu_Q2, winner_Q, n_games, lock, game_counter, seed, MCTS_settings):
+def sim_duel_game_worker(gpu_Q1, gpu_Q2, winner_Q, data_Q, n_games, lock, game_counter, seed, MCTS_settings):
     np.random.seed(seed)
     while True:
         with lock:
             done = game_counter.value > n_games
             game_counter.value += 1
         if not done:
-            duel_game(gpu_Q1, gpu_Q2, winner_Q, MCTS_settings)
+            duel_game(gpu_Q1, gpu_Q2, winner_Q, data_Q, MCTS_settings)
         else:
             return
 
@@ -606,7 +606,7 @@ def sim_game(gpu_Q, data_Q, v_resign, MCTS_settings):
         data_Q.put([S_array, P_array, z_array, None])
 
 
-def duel_game(gpu_Q1, gpu_Q2, winner_Q, MCTS_settings):
+def duel_game(gpu_Q1, gpu_Q2, winner_Q, data_Q, MCTS_settings):
     def gen_node(gpu_Q, go_game, color, conn_rec, conn_send, game_beginning):
         # A function for generating a node of If no node of board state exists
 
@@ -670,6 +670,7 @@ def duel_game(gpu_Q1, gpu_Q2, winner_Q, MCTS_settings):
     turn_color = "white"
     number_passes = 0
     go_game = go_board(board_size=board_size)
+    data = []  # For validation data
 
     # Evalute first node
     root_node, v = gen_node(black, go_game, "black", conn_rec, conn_send, True)
@@ -697,6 +698,10 @@ def duel_game(gpu_Q1, gpu_Q2, winner_Q, MCTS_settings):
 
         # Selecet action
         action = np.random.choice(n_positions + 1, size=1, p=pi_legal)[0]
+
+        # Save Data
+        S = go_game.get_state(turn_color)
+        data.append([S.copy(), pi_legal.copy(), turn_color])
 
         # Convert and take action
         if action == n_positions:
@@ -753,6 +758,33 @@ def duel_game(gpu_Q1, gpu_Q2, winner_Q, MCTS_settings):
         else:
             player1_won = 0
     winner_Q.put(player1_won)
+
+    # Return game data to data handler
+    # Winner of each move must be determined
+    # Black is winner
+    if (points > 0):
+        z = {"black": 1,
+             "white": -1}
+    else:
+        z = {"black": -1,
+             "white": 1}
+
+    # Define data arrays
+    S_array = np.empty((n_rounds, 17, board_size, board_size), dtype=bool)
+    P_array = np.empty((n_rounds, n_positions + 1), dtype=float)
+    z_array = np.empty((n_rounds), dtype=int)
+
+    # Loop over each move and fill in arrays
+    i = 0
+    for S, P, turn_color in data:
+        S_array[i] = S
+        P_array[i] = P
+        z_array[i] = z[turn_color]
+        i += 1
+
+    # Finally send data
+    data_Q.put([S_array, P_array, z_array, None])
+
     return
 
 
@@ -765,18 +797,23 @@ def sim_games(N_games, model, v_resign, MCTS_settings, model2=None, duel=False):
 
     model.eval()  # Set model for evaluating
     # Make queues for sending data
-    gpu_Q = Queue()
+    gpu_Q = Queue()  # For sending board positions to GPU
+    data_Q = Queue()  # For sending game data back for training and validation
+
     if duel == False:
-        data_Q = Queue()
         # Also make pipe for receiving v_resign
         conn_rec, conn_send = Pipe(False)
-
-        p_data = Process(target=data_handler, args=(data_Q, N_games, conn_send))
-        process_workers.append(p_data)
+        data_sub = "train"
     else:
         winner_Q = Queue()
         gpu_Q2 = Queue()
-        process_workers.append(Process(target=gpu_worker, args=(gpu_Q2, model2, MCTS_settings)))
+        data_sub = "validation"
+        p_GPU2 = Process(target=gpu_worker, args=(gpu_Q2, model2, MCTS_settings))
+        process_workers.append(p_GPU2)
+
+    p_data = Process(target=data_handler, args=(data_Q, N_games, conn_send, data_sub))
+    process_workers.append(p_data)
+
     # Make counter and lock
     game_counter = Value('i', 0)
     lock = Lock()
@@ -794,7 +831,7 @@ def sim_games(N_games, model, v_resign, MCTS_settings, model2=None, duel=False):
         seed = np.random.randint(int(2 ** 31))
         if (duel == True):
             procs.append(Process(target=sim_duel_game_worker,
-                                 args=(gpu_Q, gpu_Q2, winner_Q, N_games, lock, game_counter, seed, MCTS_settings)))
+                                 args=(gpu_Q, gpu_Q2, winner_Q, data_Q, N_games, lock, game_counter, seed, MCTS_settings)))
         else:
             procs.append(Process(target=sim_game_worker,
                                  args=(gpu_Q, data_Q, v_resign, N_games, lock, game_counter, seed, MCTS_settings)))

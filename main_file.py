@@ -35,10 +35,10 @@ if __name__ == '__main__':
     elo_league = elo_league()
 
     MCTS_settings = {"number_of_threads" : number_of_threads,
-                         "n_parallel_explorations" : n_parallel_explorations,
-                        "board_size" : board_size,
-                        "N_training_games" : N_training_games,
-                        "N_MCTS_sim" : N_MCTS_sim}
+                      "n_parallel_explorations" : n_parallel_explorations,
+                      "board_size" : board_size,
+                      "N_training_games" : N_training_games,
+                      "N_MCTS_sim" : N_MCTS_sim}
 
     # GPU things
     cuda = torch.cuda.is_available()
@@ -111,7 +111,9 @@ if __name__ == '__main__':
         save_model(best_model)
 
         new_elo, model_iter_counter = elo_league.common_duel_elo(scores[0] / (scores[1]+scores[0]))
-
+        print("The score was:")
+        print(scores)
+        print("New elo is: " + str(new_elo))
         # Store statistics
         writer.add_scalar('Elo', new_elo, model_iter_counter)
         loop_counter += 1

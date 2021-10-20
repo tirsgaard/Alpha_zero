@@ -17,13 +17,9 @@ import warnings
 sys.path.append("../model")
 from model import go_model
 
-def load_saved_games(N_data_points, board_size):
-    # Construct large numpy array of data
-    S_array = np.empty((N_data_points, 17, board_size, board_size), dtype=bool)
-    Pi_array = np.empty((N_data_points, board_size**2+1), dtype=float)
-    z_array = np.zeros((N_data_points), dtype=float)
-    
-    subdirectory = "games_data/"
+def load_saved_games(N_data_points, board_size, subdir, only_last_epochs=False):
+    # Find subdirectory to load games from
+    subdirectory = "games_data/" + subdir + "/"
     
     # Find larges number of games found
     # Get files
@@ -34,10 +30,23 @@ def load_saved_games(N_data_points, board_size):
     # get numbers from files
     number_list = []
     for file in files:
-        number_list.append(int(re.sub("[^0-9]", "",file)))
+        number_list.append(int(re.sub("[^0-9]", "", file)))
     # Get max number
     latest_games = max(number_list)
-    
+
+    # Case where only last epoch data is wanted
+    if only_last_epochs:
+        file_name = subdirectory + "game_data_" + str(latest_games) + ".npz"
+        data = np.load(file_name)
+        S = data['S']
+        Pi = data['P']
+        z = data['z']
+        return S, Pi, z
+
+    # Construct large numpy array of data
+    S_array = np.empty((N_data_points, 17, board_size, board_size), dtype=bool)
+    Pi_array = np.empty((N_data_points, board_size ** 2 + 1), dtype=float)
+    z_array = np.zeros((N_data_points), dtype=float)
     # Counter for keeping track of large array
     data_counter = 0
     while (data_counter<N_data_points):
@@ -144,6 +153,33 @@ class model_trainer:
         # GPU things
         self.cuda = torch.cuda.is_available()
 
+    def convert_torch(self, S, Pi, z):
+        S = torch.from_numpy(S).float()
+        Pi = torch.from_numpy(Pi).float()
+        z = torch.from_numpy(z).float()
+        # Convert to cuda if GPU support
+        if self.cuda:
+            S = S.cuda()
+            Pi = Pi.cuda()
+            z = z.cuda()
+
+        return S, Pi, z
+
+    def gen_epoch(self, S, Pi, z, batch_size):
+        # Note this does not permutate samples!
+        N_samples = S.shape[0]
+        samples = []
+        n_batches = np.ceil(N_samples/batch_size)
+
+        index = 0
+        for i in range(n_batches):
+            end_index = index + batch_size
+            S_batch = S[index:end_index]
+            Pi_batch = Pi[index:end_index]
+            z_batch = z[index:end_index]
+            samples.append([S_batch, Pi_batch, z_batch])
+            index += batch_size
+        return samples
 
     def train(self, training_model):
         # Select learning rate
@@ -157,21 +193,14 @@ class model_trainer:
         training_model.train()
         optimizer = optim.SGD(training_model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=10**-4)
         # Load newest data
-        S, Pi, z, n_points = load_saved_games(self.N_turns, self.board_size)
-        S = torch.from_numpy(S).float()
-        Pi = torch.from_numpy(Pi).float()
-        z = torch.from_numpy(z).float()
-        # Convert to cuda if GPU support
-        if self.cuda:
-            S = S.cuda()
-            Pi = Pi.cuda()
-            z = z.cuda()
+        S, Pi, z, n_points = load_saved_games(self.N_turns, self.board_size, "train")
+        S, Pi, z = self.convert_torch(S, Pi, z)
 
         # Train
         for i in range(self.num_epochs):
             self.training_counter += 1
 
-            # generate batch
+            # Generate batch. Note we uniform sample instead of epoch as in the original paper
             index = np.random.randint(0, n_points - 1, size=self.train_batch_size)
             Pi_batch = Pi[index]
             z_batch = z[index]
@@ -191,6 +220,33 @@ class model_trainer:
             self.writer.add_scalar('value_loss/train', v_loss, self.training_counter)
             self.writer.add_scalar('Policy_loss/train', P_loss, self.training_counter)
 
+
+
             if (i % 100 == 0):
                 print("Fraction of training done: ", i / self.num_epochs)
+
+                # Run validation
+                S, Pi, z, n_points = load_saved_games(self.N_turns, self.board_size, "validation",
+                                                      only_last_epochs=True)
+                S, Pi, z = self.convert_torch(S, Pi, z)
+                epoch_samples = self.gen_epoch(S, Pi, z, self.batch_size)
+                loss_list, v_loss_list, P_loss_list = [], [], []
+                training_model.eval()
+
+                with torch.no_grad():
+                    for S, Pi, z in epoch_samples:
+                        P_batch, v_batch = training_model.forward(S_batch)
+                        loss, v_loss, P_loss = self.criterion(Pi_batch, z_batch, P_batch, v_batch,
+                                                              self.train_batch_size,
+                                                              self.board_size)
+                        loss_list.append(loss)
+                        v_loss_list.append(v_loss)
+                        P_loss_list.append(P_loss)
+
+                    loss_val = torch.mean(loss_list)
+                    v_loss_val = torch.mean(v_loss_list)
+                    P_loss_val = torch.mean(P_loss_list)
+                self.writer.add_scalar('Total_loss/validation', loss_val, self.training_counter)
+                self.writer.add_scalar('value_loss/validation', v_loss_val, self.training_counter)
+                self.writer.add_scalar('Policy_loss/validation', P_loss_val, self.training_counter)
 
