@@ -174,9 +174,9 @@ class model_trainer:
         index = 0
         for i in range(n_batches):
             end_index = index + batch_size
-            S_batch = S[index:end_index]
-            Pi_batch = Pi[index:end_index]
-            z_batch = z[index:end_index]
+            S_batch = S[index:end_index, 0]
+            Pi_batch = Pi[index:end_index, 0]
+            z_batch = z[index:end_index, 0]
             samples.append([S_batch, Pi_batch, z_batch])
             index += batch_size
         return samples

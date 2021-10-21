@@ -411,7 +411,7 @@ class go_board:
         self.koed_place = None
 
         # Check for move was pass
-        if (move == "pass"):
+        if move == "pass":
             # Game ended
             self.game_ended = (self.last_move == "pass")
             self.last_move = move
@@ -513,7 +513,7 @@ class go_board:
         # Count points using area scoring
         # A positive score means black won, a negativ means white won, neutral is not possible with non-integer komi
         # TODO may implement mapping
-        point_board = self.board
+        point_board = self.board.copy()
 
         # set neutral positions to value 3, to mark as unexplored
         for i in range(self.board_size):
