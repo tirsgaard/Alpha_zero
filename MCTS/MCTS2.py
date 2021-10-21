@@ -45,6 +45,18 @@ class end_node:
         self.z = z
 
 
+def node_back_up(node_path, v, n_vl, relative_value):
+    # Function for backing up after a new node has been evaluated
+    for node, action, color in node_path:
+        node.N_total += -n_vl + 1
+        node.N[action] += -n_vl + 1
+        # Skip inverse since it will be updated later
+        node.N_inv[action] = 1 / (node.N[action] + 1)
+        node.W[action] += v + n_vl * relative_value[color]
+        node.Q[action] = node.W[action] / node.N[action]
+    return
+
+
 def gpu_worker(gpu_Q, model, MCTS_settings):
     with torch.no_grad():
         batch_test_length = 1000
@@ -203,13 +215,8 @@ def MCTS(root_node, gpu_Q, color, number_passes, MCTS_settings):
 
                         if (current_node.game_over):  # A done game is encountered
                             v = current_node.z
-                            for node, action, color in current_path:
-                                node.N_total += -n_vl + 1
-                                node.N[action] += -n_vl + 1
-                                node.N_inv[action] = 1 / (node.N[action] + 1)
-                                node.W[action] += v + n_vl * relative_value[color]
-                                node.Q[action] = node.W[action] / node.N[action]
 
+                            node_back_up(current_path, v, n_vl, relative_value)
                             empty = True
                             break
                     except:
@@ -270,14 +277,8 @@ def MCTS(root_node, gpu_Q, color, number_passes, MCTS_settings):
                             current_node.action_edges[n_positions] = new_node
 
                             # Backup
-                            v = current_node.W[n_positions] / (current_node.N[n_positions] - 1 + n_vl)
-                            for node, action, color in current_path:
-                                node.N_total += -n_vl + 1
-                                node.N[action] += -n_vl + 1
-                                # Skip inverse since it will be updated later
-                                node.N_inv[action] = 1 / (node.N[action] + 1)
-                                node.W[action] += v + n_vl * relative_value[color]
-                                node.Q[action] = node.W[action] / node.N[action]
+                            #v = current_node.W[n_positions] / (current_node.N[n_positions] - 1 + n_vl)
+                            node_back_up(current_path, v, n_vl, relative_value)
 
                             empty = True
                             break
@@ -290,8 +291,10 @@ def MCTS(root_node, gpu_Q, color, number_passes, MCTS_settings):
                     break
 
         if ((empty == True) & (stored_jobs == [])):
+            # This is the case where the first unexplored edge is an ending game, so might as well stop multi-jobs
+            i += 1
             empty = False
-            break
+            continue
 
         # Store values for updating
         rotation_list = []
@@ -336,12 +339,7 @@ def MCTS(root_node, gpu_Q, color, number_passes, MCTS_settings):
             current_node.action_edges[a_chosen] = new_node
 
             # Now back up and remove virtual loss
-            for node, action, color in current_path:
-                node.N_total += -n_vl + 1
-                node.W[action] += v + n_vl * relative_value[color]
-                node.N[action] += -n_vl + 1
-                node.N_inv[action] = 1 / (node.N[action] + 1)
-                node.Q[action] = node.W[action] / node.N[action]
+            node_back_up(current_path, v, n_vl, relative_value)
 
     return root_node
 
