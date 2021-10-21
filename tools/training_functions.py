@@ -174,9 +174,9 @@ class model_trainer:
         index = 0
         for i in range(n_batches):
             end_index = index + batch_size
-            S_batch = S[index:end_index, 0]
-            Pi_batch = Pi[index:end_index, 0]
-            z_batch = z[index:end_index, 0]
+            S_batch = S[index:end_index]
+            Pi_batch = Pi[index:end_index]
+            z_batch = z[index:end_index]
             samples.append([S_batch, Pi_batch, z_batch])
             index += batch_size
         return samples
@@ -239,7 +239,7 @@ class model_trainer:
                     for S_batch, Pi_batch, z_batch in epoch_samples:
                         P_batch, v_batch = training_model.forward(S_batch)
                         loss, v_loss, P_loss = self.criterion(Pi_batch, z_batch, P_batch, v_batch,
-                                                              self.train_batch_size,
+                                                              S_batch.shape[0],
                                                               self.board_size)
                         loss_list.append(loss)
                         v_loss_list.append(v_loss)

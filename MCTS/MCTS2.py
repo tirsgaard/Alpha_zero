@@ -187,7 +187,7 @@ def MCTS(root_node, gpu_Q, color, number_passes, MCTS_settings):
                 current_path.append((current_node, a_chosen, color))
 
                 ## Update stored values using virtual loss
-                current_node.W[a_chosen] = -n_vl * relative_value[color]
+                current_node.W[a_chosen] += -n_vl * relative_value[color]
                 current_node.Q[a_chosen] = (current_node.W[a_chosen]) / (current_node.N[a_chosen] + n_vl)
 
                 #### Now coontinue based if edges are explored or not
