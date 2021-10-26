@@ -17,16 +17,17 @@ import warnings
 sys.path.append("../model")
 from model import go_model
 
+
 def load_saved_games(N_data_points, board_size, subdir, only_last_epochs=False):
     # Find subdirectory to load games from
     subdirectory = "games_data/" + subdir + "/"
-    
+
     # Find larges number of games found
     # Get files
     files = []
-    for file in glob.glob(subdirectory+"*.npz"):
+    for file in glob.glob(subdirectory + "*.npz"):
         files.append(file)
-        
+
     # get numbers from files
     number_list = []
     for file in files:
@@ -49,17 +50,17 @@ def load_saved_games(N_data_points, board_size, subdir, only_last_epochs=False):
     z_array = np.zeros((N_data_points), dtype=float)
     # Counter for keeping track of large array
     data_counter = 0
-    while (data_counter<N_data_points):
+    while (data_counter < N_data_points):
         # Load data
-        file_name = subdirectory+"game_data_"+str(latest_games)+".npz"
+        file_name = subdirectory + "game_data_" + str(latest_games) + ".npz"
         latest_games -= 1
         # Case where not enough data is generated
-        if (latest_games<0):
+        if (latest_games < 0):
             S_array = S_array[0:data_counter]
             Pi_array = Pi_array[0:data_counter]
             z_array = z_array[0:data_counter]
-            
-            return S_array, Pi_array, z_array, data_counter+1
+
+            return S_array, Pi_array, z_array, data_counter + 1
 
         data = np.load(file_name)
         S = data['S']
@@ -69,14 +70,15 @@ def load_saved_games(N_data_points, board_size, subdir, only_last_epochs=False):
             # Add data to large arrays
             S_array[data_counter] = S[i]
             Pi_array[data_counter] = Pi[i]
-            z_array [data_counter] = z[i] 
+            z_array[data_counter] = z[i]
             # Increment counter
             data_counter += 1
             # Check if large arrays are filled
-            if (data_counter>=N_data_points):
+            if (data_counter >= N_data_points):
                 break
-    
-    return S_array, Pi_array, z_array, data_counter+1
+
+    return S_array, Pi_array, z_array, data_counter + 1
+
 
 def save_model(model):
     subdirectory = "model/saved_models/"
@@ -84,22 +86,22 @@ def save_model(model):
     # Find larges number of games found
     # Get files
     files = []
-    for file in glob.glob(subdirectory+"*.model"):
+    for file in glob.glob(subdirectory + "*.model"):
         files.append(file)
-        
+
     # get numbers from files
     number_list = []
     for file in files:
-        number_list.append(int(re.sub("[^0-9]", "",file)))
-        
-    if (number_list==[]):
+        number_list.append(int(re.sub("[^0-9]", "", file)))
+
+    if (number_list == []):
         number_list = [0]
     # Get max number
-    latest_new_model = max(number_list)+1
-    
+    latest_new_model = max(number_list) + 1
+
     save_name = subdirectory + "model_" + str(latest_new_model) + ".model"
     torch.save(model, save_name)
-    
+
 
 def load_latest_model():
     subdirectory = "model/saved_models/"
@@ -107,21 +109,21 @@ def load_latest_model():
     # Find larges number of games found
     # Get files
     files = []
-    for file in glob.glob(subdirectory+"*.model"):
+    for file in glob.glob(subdirectory + "*.model"):
         files.append(file)
-        
+
     # get numbers from files
     number_list = []
     for file in files:
-        number_list.append(int(re.sub("[^0-9]", "",file)))
-    
-    if (number_list==[]):
+        number_list.append(int(re.sub("[^0-9]", "", file)))
+
+    if (number_list == []):
         warnings.warn("No model was found in path " + subdirectory, RuntimeWarning)
         return None
     # Get max number
     latest_model = max(number_list)
-    
-    load_name = subdirectory+"model_" + str(latest_model) + ".model"
+
+    load_name = subdirectory + "model_" + str(latest_model) + ".model"
     print("Loading model " + load_name)
     sys.path.append("model")
     if (torch.cuda.is_available()):
@@ -130,16 +132,19 @@ def load_latest_model():
         model = torch.load(load_name, map_location=torch.device('cpu'))
     return model
 
+
 def loss_function(Pi, z, P, v, batch_size, board_size):
     v = torch.squeeze(v)
-    value_error = torch.mean((v - z)**2)
+    value_error = torch.mean((v - z) ** 2)
     inner = torch.log(1e-8 + P)
-    policy_error = torch.bmm(Pi.view(batch_size, 1, board_size**2+1), inner.view(batch_size, board_size**2+1, 1)).mean()
+    policy_error = torch.bmm(Pi.view(batch_size, 1, board_size ** 2 + 1),
+                             inner.view(batch_size, board_size ** 2 + 1, 1)).mean()
     total_error = value_error - policy_error
     return total_error, value_error, -policy_error
 
+
 class model_trainer:
-    def __init__(self, writer, MCTS_settings, N_turns=5*10**5, num_epochs = 320, train_batch_size = 512):
+    def __init__(self, writer, MCTS_settings, N_turns=5 * 10 ** 5, num_epochs=320, train_batch_size=512, rotate=True):
         self.writer = writer
         self.MCTS_settings = MCTS_settings
         self.criterion = loss_function
@@ -147,6 +152,7 @@ class model_trainer:
         self.num_epochs = num_epochs
         self.train_batch_size = train_batch_size
         self.board_size = self.MCTS_settings["board_size"]
+        self.rotate = rotate
         self.training_counter = 0
 
         # Check for cuda
@@ -169,7 +175,7 @@ class model_trainer:
         # Note this does not permutate samples!
         N_samples = S.shape[0]
         samples = []
-        n_batches = int(np.ceil(N_samples/batch_size))
+        n_batches = int(np.ceil(N_samples / batch_size))
 
         index = 0
         for i in range(n_batches):
@@ -180,6 +186,44 @@ class model_trainer:
             samples.append([S_batch, Pi_batch, z_batch])
             index += batch_size
         return samples
+    def rotate_batch(self, Pi_batch, S_batch):
+        # First convert back to 2D board
+        Pi_actions = torch.reshape(Pi_batch[:, 0:(self.board_size ** 2)],
+                                   (-1, self.board_size, self.board_size))
+        rotations = torch.randint(0, 4, size=(self.train_batch_size,))
+        # This works by sampling number of different rotation types, and splitting the tensor
+        zeroes = torch.sum(rotations == 0)
+        ones = torch.sum(rotations == 1)
+        twos = torch.sum(rotations == 2)
+        threes = torch.sum(rotations == 3)
+        rots = [zeroes, ones, twos, threes]
+
+        Pi_chunks = list(torch.split(Pi_actions, rots))
+        Pi_chunks[1] = torch.rot90(Pi_chunks[1], 1, dims=(1, 2))
+        Pi_chunks[2] = torch.rot90(Pi_chunks[2], 1, dims=(1, 2))
+        Pi_chunks[3] = torch.rot90(Pi_chunks[3], 1, dims=(1, 2))
+
+        S_chunks = list(torch.split(S_batch, rots))
+        S_chunks[1] = torch.rot90(S_chunks[1], 1, dims=(2, 3))
+        S_chunks[2] = torch.rot90(S_chunks[2], 1, dims=(2, 3))
+        S_chunks[3] = torch.rot90(S_chunks[3], 1, dims=(2, 3))
+
+        Pi_actions = torch.cat(Pi_chunks, dim=0)
+        S_batch = torch.cat(S_chunks, dim=0)
+
+        # Now repeat same trick with reflection
+        # First generate index for reflection (this is also a binomial sampling)
+
+        # Rotation will be seperated into 4 chuncks as torch.rot90 does not support different rotations in sample sample
+        reflects = torch.randint(0, 2, size=(self.train_batch_size,)) == 1
+        Pi_actions[reflects] = torch.flip(Pi_actions[reflects], dims=(1,))
+        S_batch[reflects] = torch.flip(S_batch[reflects], dims=(2,))
+
+        # Put the board- and pass actions back together
+        Pi_actions = Pi_actions.reshape(-1, self.board_size ** 2)
+        Pi_batch = torch.cat([Pi_actions, Pi_batch[:, self.board_size ** 2, None]], dim=1)
+
+        return Pi_batch, S_batch
 
     def train(self, training_model):
         # Select learning rate
@@ -191,7 +235,7 @@ class model_trainer:
             learning_rate = 0.25 * 10 ** -4
 
         training_model.train()
-        optimizer = optim.SGD(training_model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=10**-4)
+        optimizer = optim.SGD(training_model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=10 ** -4)
         # Load newest data
         S, Pi, z, n_points = load_saved_games(self.N_turns, self.board_size, "train")
         S, Pi, z = self.convert_torch(S, Pi, z)
@@ -206,10 +250,15 @@ class model_trainer:
             z_batch = z[index]
             S_batch = S[index]
 
+            if self.rotate:
+                # Case where rotation is used as data argmentation
+                Pi_batch, S_batch = self.rotate_batch(Pi_batch, S_batch)
+
             # Optimize
             optimizer.zero_grad()
             P_batch, v_batch = training_model.forward(S_batch)
-            loss, v_loss, P_loss = self.criterion(Pi_batch, z_batch, P_batch, v_batch, self.train_batch_size, self.board_size)
+            loss, v_loss, P_loss = self.criterion(Pi_batch, z_batch, P_batch, v_batch, self.train_batch_size,
+                                                  self.board_size)
             loss.backward()
             optimizer.step()
 
@@ -220,8 +269,6 @@ class model_trainer:
             self.writer.add_scalar('value_loss/train', v_loss, self.training_counter)
             self.writer.add_scalar('Policy_loss/train', P_loss, self.training_counter)
 
-
-
             if ((i % 100 == 0) and (self.training_counter >= self.num_epochs)):
                 # number of epochs should be above one loop, so validation data exists
 
@@ -229,7 +276,7 @@ class model_trainer:
 
                 # Run validation
                 S_val, Pi_val, z_val, n_points = load_saved_games(self.N_turns, self.board_size, "validation",
-                                                      only_last_epochs=True)
+                                                                  only_last_epochs=True)
                 S_val, Pi_val, z_val = self.convert_torch(S_val, Pi_val, z_val)
                 epoch_samples = self.gen_epoch(S_val, Pi_val, z_val, self.train_batch_size)
                 loss_list, v_loss_list, P_loss_list = [], [], []
@@ -252,3 +299,28 @@ class model_trainer:
                 self.writer.add_scalar('value_loss/validation', v_loss_val, self.training_counter)
                 self.writer.add_scalar('Policy_loss/validation', P_loss_val, self.training_counter)
 
+
+def unravel_index(indices, shape):
+    r"""Converts flat indices into unraveled coordinates in a target shape.
+    Code is from https://github.com/pytorch/pytorch/issues/35674
+
+    This is a `torch` implementation of `numpy.unravel_index`.
+
+    Args:
+        indices: A tensor of indices, (*, N).
+        shape: The targeted shape, (D,).
+
+    Returns:
+        unravel coordinates, (*, N, D).
+    """
+
+    shape = torch.tensor(shape)
+    indices = indices % shape.prod()  # prevent out-of-bounds indices
+
+    coord = torch.zeros(indices.size() + shape.size(), dtype=int)
+
+    for i, dim in enumerate(reversed(shape)):
+        coord[..., i] = indices % dim
+        indices = indices // dim
+
+    return coord.flip(-1)

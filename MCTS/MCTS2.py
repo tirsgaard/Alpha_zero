@@ -142,7 +142,7 @@ def reverse_rotate(P, rotation, reflection, board_shape):
     # The indexing is because of the posibility of a pass action
     total_board_size = board_shape * board_shape
     temp_P = np.reshape(P[0:total_board_size], (board_shape, board_shape))
-    if (reflection == 1):
+    if reflection == 1:
         temp_P = np.flip(temp_P, axis=(1))
 
     # Reverse rotation 
