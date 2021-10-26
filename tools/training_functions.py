@@ -252,7 +252,8 @@ class model_trainer:
 
             if self.rotate:
                 # Case where rotation is used as data argmentation
-                Pi_batch, S_batch = self.rotate_batch(Pi_batch, S_batch)
+                with torch.no_grad():
+                    Pi_batch, S_batch = self.rotate_batch(Pi_batch, S_batch)
 
             # Optimize
             optimizer.zero_grad()

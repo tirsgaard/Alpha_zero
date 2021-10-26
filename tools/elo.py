@@ -3,7 +3,7 @@ import numpy as np
 import pickle
 
 class elo_league:
-    def __init__(self, load_path = "saved_models/league_data"):
+    def __init__(self, load_path = "model/saved_models/league_data"):
         self.league_path = load_path
         try:
             save_file = open(self.league_path + ".pkl", "rb")
@@ -40,7 +40,7 @@ class elo_league:
         self.player_list[known_player] = elo
 
     def save_league(self):
-        save_file = open(self.league_path+".pkl", "wb+")
+        save_file = open(self.league_path + ".pkl", "wb+")
         pickle.dump(self.player_list, save_file)
         save_file.close()
 

@@ -21,11 +21,11 @@ if __name__ == '__main__':
 
 
     ## Hyper parameters
-    number_of_threads = 1  # Number of threads / games of go to run in parallel
+    number_of_threads = 16  # Number of threads / games of go to run in parallel
     n_parallel_explorations = 4  # Number of pseudo-parrallel runs of the MCTS, note >16 reduces accuracy significantly
     N_MCTS_sim = 100  # Number of MCTS simulations for each move
     board_size = 5  # Board size of go
-    N_training_games = 1  # Number of games to run each
+    N_training_games = 2000  # Number of games to run each
     #MCTS_queue = 8
 
     N_duel_games = 100 # Number of games to play each duel
@@ -111,6 +111,7 @@ if __name__ == '__main__':
         save_model(best_model)
 
         new_elo, model_iter_counter = elo_league.common_duel_elo(scores[0] / (scores[1]+scores[0]))
+        elo_league.save_league()
         print("The score was:")
         print(scores)
         print("New elo is: " + str(new_elo))
