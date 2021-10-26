@@ -21,17 +21,18 @@ if __name__ == '__main__':
 
 
     ## Hyper parameters
-    number_of_threads = 4  # Number of threads / games of go to run in parallel
+    number_of_threads = 16  # Number of threads / games of go to run in parallel
     n_parallel_explorations = 4  # Number of pseudo-parrallel runs of the MCTS, note >16 reduces accuracy significantly
     N_MCTS_sim = 100  # Number of MCTS simulations for each move
     board_size = 5  # Board size of go
-    N_training_games = 4  # Number of games to run each
+    N_training_games = 2000  # Number of games to run each
     # MCTS_queue = 8
 
-    N_duel_games = 4  # Number of games to play each duel
+    N_duel_games = 100  # Number of games to play each duel
     N_turns = 500000
-    train_batch_size = 64
+    train_batch_size = 512
     max_training_epochs = 3200
+    first_training_epoch = 320
     elo_league = elo_league()
 
     MCTS_settings = {"number_of_threads": number_of_threads,
@@ -41,6 +42,7 @@ if __name__ == '__main__':
                      "N_MCTS_sim": N_MCTS_sim}
 
     training_settings = {"train_batch_size": train_batch_size,
+                         "first_training_epoch": first_training_epoch,
                          "max_training_epochs": max_training_epochs,
                          "use_early_stopping": True,
                          "patience": 3,

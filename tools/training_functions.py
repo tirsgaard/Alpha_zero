@@ -150,6 +150,7 @@ class model_trainer:
         self.criterion = loss_function
         self.N_turns = N_turns
         self.num_epochs = training_settings["max_training_epochs"]
+        self.first_training_epoch = training_settings["first_training_epoch"]
         self.train_batch_size = training_settings["train_batch_size"]
         self.board_size = self.MCTS_settings["board_size"]
         self.rotate = training_settings["use_rotation"]
@@ -243,10 +244,12 @@ class model_trainer:
         S, Pi, z, n_points = load_saved_games(self.N_turns, self.board_size, "train")
         S, Pi, z = self.convert_torch(S, Pi, z)
 
-        last_lowest_loss = torch.tensor([float("-Inf")])
+        last_lowest_loss = torch.tensor([float("Inf")])
         increasing_loss_streak = 0
+
+        length_training = self.first_training_epoch if self.training_counter==0 else self.num_epochs
         # Train
-        for i in range(self.num_epochs):
+        for i in range(length_training):
             self.training_counter += 1
 
             # Generate batch. Note we uniform sample instead of epoch as in the original paper
