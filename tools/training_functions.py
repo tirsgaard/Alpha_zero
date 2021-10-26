@@ -144,15 +144,17 @@ def loss_function(Pi, z, P, v, batch_size, board_size):
 
 
 class model_trainer:
-    def __init__(self, writer, MCTS_settings, N_turns=5 * 10 ** 5, num_epochs=320, train_batch_size=512, rotate=True):
+    def __init__(self, writer, MCTS_settings, training_settings, N_turns=5*10 ** 5):
         self.writer = writer
         self.MCTS_settings = MCTS_settings
         self.criterion = loss_function
         self.N_turns = N_turns
-        self.num_epochs = num_epochs
-        self.train_batch_size = train_batch_size
+        self.num_epochs = training_settings["max_training_epochs"]
+        self.train_batch_size = training_settings["train_batch_size"]
         self.board_size = self.MCTS_settings["board_size"]
-        self.rotate = rotate
+        self.rotate = training_settings["use_rotation"]
+        self.patience = training_settings["patience"]
+        self.use_early_stopping = training_settings["use_early_stopping"]
         self.training_counter = 0
 
         # Check for cuda
@@ -186,6 +188,7 @@ class model_trainer:
             samples.append([S_batch, Pi_batch, z_batch])
             index += batch_size
         return samples
+
     def rotate_batch(self, Pi_batch, S_batch):
         # First convert back to 2D board
         Pi_actions = torch.reshape(Pi_batch[:, 0:(self.board_size ** 2)],
@@ -240,6 +243,8 @@ class model_trainer:
         S, Pi, z, n_points = load_saved_games(self.N_turns, self.board_size, "train")
         S, Pi, z = self.convert_torch(S, Pi, z)
 
+        last_lowest_loss = torch.tensor([float("-Inf")])
+        increasing_loss_streak = 0
         # Train
         for i in range(self.num_epochs):
             self.training_counter += 1
@@ -270,7 +275,7 @@ class model_trainer:
             self.writer.add_scalar('value_loss/train', v_loss, self.training_counter)
             self.writer.add_scalar('Policy_loss/train', P_loss, self.training_counter)
 
-            if ((i % 100 == 0) and (self.training_counter >= self.num_epochs)):
+            if ((i % 10 == 0) and (self.training_counter >= self.num_epochs)):
                 # number of epochs should be above one loop, so validation data exists
 
                 print("Fraction of training done: ", i / self.num_epochs)
@@ -296,32 +301,20 @@ class model_trainer:
                     loss_val = torch.mean(torch.tensor(loss_list))
                     v_loss_val = torch.mean(torch.tensor(v_loss_list))
                     P_loss_val = torch.mean(torch.tensor(P_loss_list))
+
+                if last_lowest_loss >= loss_val:
+                    last_lowest_loss = loss_val
+                    increasing_loss_streak = 0
+                else:
+                    increasing_loss_streak += 1
+
                 self.writer.add_scalar('Total_loss/validation', loss_val, self.training_counter)
                 self.writer.add_scalar('value_loss/validation', v_loss_val, self.training_counter)
                 self.writer.add_scalar('Policy_loss/validation', P_loss_val, self.training_counter)
 
+                if (increasing_loss_streak >= self.patience) and self.use_early_stopping:
+                    # Case where no improvement of validation loss is observed for self.patience iterations
+                    print("breaking at: " + str(i))
+                    break
+        self.writer.add_scalar('Training_length', i, self.training_counter)
 
-def unravel_index(indices, shape):
-    r"""Converts flat indices into unraveled coordinates in a target shape.
-    Code is from https://github.com/pytorch/pytorch/issues/35674
-
-    This is a `torch` implementation of `numpy.unravel_index`.
-
-    Args:
-        indices: A tensor of indices, (*, N).
-        shape: The targeted shape, (D,).
-
-    Returns:
-        unravel coordinates, (*, N, D).
-    """
-
-    shape = torch.tensor(shape)
-    indices = indices % shape.prod()  # prevent out-of-bounds indices
-
-    coord = torch.zeros(indices.size() + shape.size(), dtype=int)
-
-    for i, dim in enumerate(reversed(shape)):
-        coord[..., i] = indices % dim
-        indices = indices // dim
-
-    return coord.flip(-1)

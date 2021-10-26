@@ -21,24 +21,30 @@ if __name__ == '__main__':
 
 
     ## Hyper parameters
-    number_of_threads = 16  # Number of threads / games of go to run in parallel
+    number_of_threads = 4  # Number of threads / games of go to run in parallel
     n_parallel_explorations = 4  # Number of pseudo-parrallel runs of the MCTS, note >16 reduces accuracy significantly
     N_MCTS_sim = 100  # Number of MCTS simulations for each move
     board_size = 5  # Board size of go
-    N_training_games = 2000  # Number of games to run each
-    #MCTS_queue = 8
+    N_training_games = 4  # Number of games to run each
+    # MCTS_queue = 8
 
-    N_duel_games = 100 # Number of games to play each duel
+    N_duel_games = 4  # Number of games to play each duel
     N_turns = 500000
-    train_batch_size = 512
-    num_epochs = 320
+    train_batch_size = 64
+    max_training_epochs = 3200
     elo_league = elo_league()
 
-    MCTS_settings = {"number_of_threads" : number_of_threads,
-                      "n_parallel_explorations" : n_parallel_explorations,
-                      "board_size" : board_size,
-                      "N_training_games" : N_training_games,
-                      "N_MCTS_sim" : N_MCTS_sim}
+    MCTS_settings = {"number_of_threads": number_of_threads,
+                     "n_parallel_explorations": n_parallel_explorations,
+                     "board_size": board_size,
+                     "N_training_games": N_training_games,
+                     "N_MCTS_sim": N_MCTS_sim}
+
+    training_settings = {"train_batch_size": train_batch_size,
+                         "max_training_epochs": max_training_epochs,
+                         "use_early_stopping": True,
+                         "patience": 3,
+                         "use_rotation": True}
 
     # GPU things
     cuda = torch.cuda.is_available()
@@ -62,30 +68,25 @@ if __name__ == '__main__':
         best_model.cuda()
         training_model.cuda()
 
-    trainer = model_trainer(writer, MCTS_settings)
+    trainer = model_trainer(writer, MCTS_settings, training_settings)
 
     ## define variables to be used
     v_resign = float("-inf")
     loop_counter = 1
     training_counter = 0
 
-    # This is in the case of early termination
-    skip_self_play = False
-    skip_training = False
-
     ## Running loop
     while True:
-        if ((not skip_self_play) | (training_counter > 0)):
-            print("Beginning loop", loop_counter)
-            print("Beginning self-play")
-            ## Generate new data for training
-            with torch.no_grad():
-                v_resign = sim_games(N_training_games,
-                                     best_model,
-                                     v_resign,
-                                     MCTS_settings)
+        print("Beginning loop", loop_counter)
+        print("Beginning self-play")
+        ## Generate new data for training
+        with torch.no_grad():
+            v_resign = sim_games(N_training_games,
+                                 best_model,
+                                 v_resign,
+                                 MCTS_settings)
 
-            writer.add_scalar('v_resign', v_resign, loop_counter)
+        writer.add_scalar('v_resign', v_resign, loop_counter)
 
         print("Begin training")
         ## Now train model
@@ -110,7 +111,7 @@ if __name__ == '__main__':
         best_model = training_model
         save_model(best_model)
 
-        new_elo, model_iter_counter = elo_league.common_duel_elo(scores[0] / (scores[1]+scores[0]))
+        new_elo, model_iter_counter = elo_league.common_duel_elo(scores[0] / (scores[1] + scores[0]))
         elo_league.save_league()
         print("The score was:")
         print(scores)
