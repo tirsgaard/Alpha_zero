@@ -305,16 +305,18 @@ class model_trainer:
                     v_loss_val = torch.mean(torch.tensor(v_loss_list))
                     P_loss_val = torch.mean(torch.tensor(P_loss_list))
 
-                if last_lowest_loss >= loss_val:
-                    last_lowest_loss = loss_val
-                    increasing_loss_streak = 0
-                else:
-                    increasing_loss_streak += 1
-
                 self.writer.add_scalar('Total_loss/validation', loss_val, self.training_counter)
                 self.writer.add_scalar('value_loss/validation', v_loss_val, self.training_counter)
                 self.writer.add_scalar('Policy_loss/validation', P_loss_val, self.training_counter)
 
+                print("Lowest loss value: " + str(last_lowest_loss))
+                print("Loss value: " + str(loss_val))
+                if last_lowest_loss >= loss_val:
+
+                    last_lowest_loss = loss_val
+                    increasing_loss_streak = 0
+                else:
+                    increasing_loss_streak += 1
                 if (increasing_loss_streak >= self.patience) and self.use_early_stopping:
                     # Case where no improvement of validation loss is observed for self.patience iterations
                     print("breaking at: " + str(i))

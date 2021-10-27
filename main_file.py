@@ -45,7 +45,7 @@ if __name__ == '__main__':
                          "first_training_epoch": first_training_epoch,
                          "max_training_epochs": max_training_epochs,
                          "use_early_stopping": True,
-                         "patience": 3,
+                         "patience": 6,
                          "use_rotation": True}
 
     # GPU things
