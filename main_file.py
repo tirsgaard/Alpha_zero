@@ -69,8 +69,8 @@ if __name__ == '__main__':
     if cuda:
         best_model.cuda()
         training_model.cuda()
-
-    trainer = model_trainer(writer, MCTS_settings, training_settings)
+    dummy_model = resnet40(17, 128, board_size=board_size) # TODO clean this mess up
+    trainer = model_trainer(writer, MCTS_settings, training_settings, dummy_model)
 
     ## define variables to be used
     v_resign = float("-inf")

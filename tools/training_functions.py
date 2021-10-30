@@ -144,7 +144,7 @@ def loss_function(Pi, z, P, v, batch_size, board_size):
 
 
 class model_trainer:
-    def __init__(self, writer, MCTS_settings, training_settings, N_turns=5*10 ** 5):
+    def __init__(self, writer, MCTS_settings, training_settings, dummy_model, N_turns=5*10 ** 5):
         self.writer = writer
         self.MCTS_settings = MCTS_settings
         self.criterion = loss_function
@@ -156,6 +156,8 @@ class model_trainer:
         self.rotate = training_settings["use_rotation"]
         self.patience = training_settings["patience"]
         self.use_early_stopping = training_settings["use_early_stopping"]
+        self.dummy_model = dummy_model   # TODO clean this mess up
+
         self.training_counter = 0
 
         # Check for cuda
@@ -314,7 +316,7 @@ class model_trainer:
                 if last_lowest_loss >= loss_val:
                     last_lowest_loss = loss_val
                     increasing_loss_streak = 0
-                    best_model = training_model.deep_copy() # New best model
+                    best_model = self.dummy_model.load_state_dict(training_model.state_dict())  # New best model
                 else:
                     increasing_loss_streak += 1
                 if (increasing_loss_streak >= self.patience) and self.use_early_stopping:
