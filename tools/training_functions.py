@@ -237,7 +237,7 @@ class model_trainer:
             learning_rate = 0.25 * 10 ** -3
         else:
             learning_rate = 0.25 * 10 ** -4
-
+        best_model = training_model # Initialise the best model as the training model
         training_model.train()
         optimizer = optim.SGD(training_model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=10 ** -4)
         # Load newest data
@@ -247,7 +247,7 @@ class model_trainer:
         last_lowest_loss = torch.tensor([float("Inf")])
         increasing_loss_streak = 0
 
-        length_training = self.first_training_epoch if self.training_counter==0 else self.num_epochs
+        length_training = self.first_training_epoch if (self.training_counter == 0) else self.num_epochs
         # Train
         for i in range(length_training):
             self.training_counter += 1
