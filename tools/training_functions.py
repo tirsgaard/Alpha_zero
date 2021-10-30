@@ -156,7 +156,7 @@ class model_trainer:
         self.rotate = training_settings["use_rotation"]
         self.patience = training_settings["patience"]
         self.use_early_stopping = training_settings["use_early_stopping"]
-        self.dummy_model = dummy_model   # TODO clean this mess up
+        self.best_model = dummy_model   # TODO clean this mess up
 
         self.training_counter = 0
 
@@ -316,7 +316,8 @@ class model_trainer:
                 if last_lowest_loss >= loss_val:
                     last_lowest_loss = loss_val
                     increasing_loss_streak = 0
-                    best_model = self.dummy_model.load_state_dict(training_model.state_dict())  # New best model
+                    self.best_model.load_state_dict(training_model.state_dict())  # New best model
+                    best_model  = self.best_model
                 else:
                     increasing_loss_streak += 1
                 if (increasing_loss_streak >= self.patience) and self.use_early_stopping:
