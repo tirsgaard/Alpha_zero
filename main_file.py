@@ -92,7 +92,7 @@ if __name__ == '__main__':
 
         print("Begin training")
         ## Now train model
-        trainer.train(training_model)
+        training_model = trainer.train(training_model)
 
         print("Begin evaluation")
         ## Evaluate training model against best model

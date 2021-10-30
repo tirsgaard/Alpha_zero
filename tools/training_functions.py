@@ -312,9 +312,9 @@ class model_trainer:
                 print("Lowest loss value: " + str(last_lowest_loss))
                 print("Loss value: " + str(loss_val))
                 if last_lowest_loss >= loss_val:
-
                     last_lowest_loss = loss_val
                     increasing_loss_streak = 0
+                    best_model = training_model.deep_copy() # New best model
                 else:
                     increasing_loss_streak += 1
                 if (increasing_loss_streak >= self.patience) and self.use_early_stopping:
@@ -322,4 +322,5 @@ class model_trainer:
                     print("breaking at: " + str(i))
                     break
         self.writer.add_scalar('Training_length', i, self.training_counter)
+        return best_model
 
